@@ -20,7 +20,7 @@ This project analyzes the relationship between COVID-19 vaccine hesitancy, socia
 
 - **Vaccine Hesitancy Data**: [Vaccine Hesitancy for COVID-19: County and Local Estimates](https://data.cdc.gov/Vaccinations/Vaccine-Hesitancy-for-COVID-19-County-and-local-es/q9mh-h2tw) (CDC)
 - **COVID-19 Deaths Data**: [JHU CSSE COVID-19 Time Series - Deaths (US)](https://github.com/CSSEGISandData/COVID-19/tree/master/csse_covid_19_data/csse_covid_19_time_series) (Johns Hopkins University)
-- **SDOH Measures Data**:[SDOH Measures for County, ACS 2017-2021](https://catalog.data.gov/dataset/sdoh-measures-for-county-acs-2017-2021)(CDC)
+- **SDOH Measures Data**: [SDOH Measures for County, ACS 2017-2021](https://catalog.data.gov/dataset/sdoh-measures-for-county-acs-2017-2021)(CDC)
 
 
 ## Generated Datasets

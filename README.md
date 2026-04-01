@@ -17,11 +17,9 @@ This project analyzes the relationship between COVID-19 vaccine hesitancy, socia
 
 ## Data Sources
 
-| Dataset | Source | Description |
-|---------|--------|-------------|
-| Vaccine Hesitancy | [CDC](https://data.cdc.gov/) | County-level vaccine hesitancy estimates |
-| COVID-19 Deaths | [USA Facts](https://usafacts.org/visualizations/coronavirus-covid-19-spread-map/) | Weekly COVID-19 death counts by county |
-| SDOH Measures | [CDC - ACS 2017-2021](https://data.cdc.gov/) | Social Determinants of Health from American Community Survey |
+Vaccine Hesitancy Data: Vaccine Hesitancy for COVID-19: County and Local Estimates (CDC)
+COVID-19 Deaths Data: JHU CSSE COVID-19 Time Series - Deaths (US) (Johns Hopkins University)
+SDOH Measures Data: https://catalog.data.gov/dataset/sdoh-measures-for-county-acs-2017-2021
 
 ## Generated Datasets
 

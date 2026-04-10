@@ -1,0 +1,269 @@
+---
+title: "Wrangling project"
+author: "Sandi Alshahwan"
+date: "2026-04-09"
+output: word_document
+---
+
+```{r}
+getwd()
+```
+```{r}
+cumulative_data <- read.csv("combined_hesitancy_sdoh_cumulative_death_rate.txt")
+
+dim(cumulative_data)
+names(cumulative_data)
+head(cumulative_data[, 1:15])
+```
+
+## Identify the last cumulative death column
+```{r}
+last_col_name <- names(cumulative_data)[ncol(cumulative_data)]
+last_col_name
+
+cumulative_data$death_outcome <- cumulative_data[[last_col_name]]
+
+summary(cumulative_data$death_outcome)
+```
+
+## Check Key Variables
+```{r}
+names(cumulative_data)
+```
+
+## Hesitancy Vs Cumulative death
+```{r}
+cor.test(cumulative_data$Hesitancy_Rate, cumulative_data$death_outcome)
+```
+
+##SDOH Vs Cumulative death
+```{r}
+names(cumulative_data)
+```
+## Correlations
+```{r}
+## SDOH vs cumulative death correlations
+
+cor.test(cumulative_data$SDOH_Aged.65.years.or.older, cumulative_data$death_outcome)
+
+cor.test(cumulative_data$SDOH_Crowding, cumulative_data$death_outcome)
+
+cor.test(cumulative_data$SDOH_Housing.cost.burden, cumulative_data$death_outcome)
+
+cor.test(cumulative_data$SDOH_No.broadband, cumulative_data$death_outcome)
+
+cor.test(cumulative_data$SDOH_No.high.school.diploma, cumulative_data$death_outcome)
+
+cor.test(cumulative_data$SDOH_Poverty, cumulative_data$death_outcome)
+
+cor.test(cumulative_data$SDOH_Racial.or.ethnic.minority.status, cumulative_data$death_outcome)
+
+cor.test(cumulative_data$SDOH_Single.parent.households, cumulative_data$death_outcome)
+
+cor.test(cumulative_data$SDOH_Unemployment, cumulative_data$death_outcome)
+```
+```{r}
+library(officer)
+library(flextable)
+library(dplyr)
+
+extract_cor_results <- function(data, var1, var2, label) {
+  temp <- na.omit(data[, c(var1, var2)])
+  test <- cor.test(temp[[var1]], temp[[var2]])
+  
+  r_value <- unname(test$estimate)
+  ci_low <- test$conf.int[1]
+  ci_high <- test$conf.int[2]
+  p_val <- test$p.value
+  
+  interpretation <- case_when(
+    abs(r_value) < 0.10 ~ "Very weak",
+    abs(r_value) < 0.30 ~ "Weak",
+    abs(r_value) < 0.50 ~ "Moderate",
+    TRUE ~ "Strong"
+  )
+  
+  direction <- ifelse(r_value >= 0, "positive", "negative")
+  p_val_text <- ifelse(p_val < 0.001, "< 0.001", sprintf("%.3f", p_val))
+  
+  data.frame(
+    Variable = label,
+    Correlation = round(r_value, 2),
+    CI_95 = paste0(round(ci_low, 2), " to ", round(ci_high, 2)),
+    P_value = as.character(p_val_text),
+    Interpretation = paste(interpretation, direction),
+    stringsAsFactors = FALSE
+  )
+}
+
+# Table 1: Hesitancy vs cumulative death
+table1 <- extract_cor_results(
+  data = cumulative_data,
+  var1 = "Hesitancy_Rate",
+  var2 = "death_outcome",
+  label = "Hesitancy Rate"
+)
+
+# Table 2: SDOH vs cumulative death
+sdoh_vars <- c(
+  "SDOH_Aged.65.years.or.older",
+  "SDOH_Crowding",
+  "SDOH_Housing.cost.burden",
+  "SDOH_No.broadband",
+  "SDOH_No.high.school.diploma",
+  "SDOH_Poverty",
+  "SDOH_Racial.or.ethnic.minority.status",
+  "SDOH_Single.parent.households",
+  "SDOH_Unemployment"
+)
+
+sdoh_labels <- c(
+  "Aged 65+",
+  "Crowding",
+  "Housing Cost Burden",
+  "No Broadband",
+  "No High School Diploma",
+  "Poverty",
+  "Minority Status",
+  "Single-Parent Households",
+  "Unemployment"
+)
+
+table2 <- bind_rows(
+  lapply(seq_along(sdoh_vars), function(i) {
+    extract_cor_results(
+      data = cumulative_data,
+      var1 = sdoh_vars[i],
+      var2 = "death_outcome",
+      label = sdoh_labels[i]
+    )
+  })
+)
+
+# Make tables
+ft1 <- flextable(table1)
+ft1 <- autofit(ft1)
+
+ft2 <- flextable(table2)
+ft2 <- autofit(ft2)
+
+# Export to Word
+doc <- read_docx()
+
+doc <- body_add_par(doc, "Correlation Results: Cumulative Death Analysis", style = "heading 1")
+doc <- body_add_par(doc, "Table 1. Hesitancy Rate vs Cumulative Death Rate", style = "heading 2")
+doc <- body_add_flextable(doc, ft1)
+
+doc <- body_add_par(doc, "", style = "Normal")
+
+doc <- body_add_par(doc, "Table 2. Social Determinants of Health vs Cumulative Death Rate", style = "heading 2")
+doc <- body_add_flextable(doc, ft2)
+
+print(doc, target = "cumulative_death_correlation_tables.docx")
+```
+
+## Two predictor regression (hesitancy + SDOH = Cumulative death)
+```{r}
+library(officer)
+library(flextable)
+library(dplyr)
+
+# Function to extract model results for Hesitancy + one SDOH predictor
+extract_lm_results <- function(data, sdoh_var, sdoh_label, outcome = "death_outcome") {
+  
+  # Keep only needed columns and drop missing
+  temp <- data[, c("Hesitancy_Rate", sdoh_var, outcome)]
+  temp <- na.omit(temp)
+  
+  # Fit model
+  model <- lm(
+    as.formula(paste(outcome, "~ Hesitancy_Rate +", sdoh_var)),
+    data = temp
+  )
+  
+  model_summary <- summary(model)
+  coefs <- model_summary$coefficients
+  
+  # Pull hesitancy row
+  hes_est <- coefs["Hesitancy_Rate", "Estimate"]
+  hes_p   <- coefs["Hesitancy_Rate", "Pr(>|t|)"]
+  
+  # Pull SDOH row
+  sdoh_est <- coefs[sdoh_var, "Estimate"]
+  sdoh_p   <- coefs[sdoh_var, "Pr(>|t|)"]
+  
+  # Model fit
+  r2 <- model_summary$r.squared
+  adj_r2 <- model_summary$adj.r.squared
+  
+  data.frame(
+    SDOH_Variable = sdoh_label,
+    Hesitancy_Beta = round(hes_est, 2),
+    Hesitancy_P = ifelse(hes_p < 0.001, "< 0.001", sprintf("%.3f", hes_p)),
+    SDOH_Beta = round(sdoh_est, 2),
+    SDOH_P = ifelse(sdoh_p < 0.001, "< 0.001", sprintf("%.3f", sdoh_p)),
+    R_squared = round(r2, 3),
+    Adjusted_R_squared = round(adj_r2, 3),
+    stringsAsFactors = FALSE
+  )
+}
+
+# Run all 9 two-predictor models
+sdoh_vars <- c(
+  "SDOH_Aged.65.years.or.older",
+  "SDOH_Crowding",
+  "SDOH_Housing.cost.burden",
+  "SDOH_No.broadband",
+  "SDOH_No.high.school.diploma",
+  "SDOH_Poverty",
+  "SDOH_Racial.or.ethnic.minority.status",
+  "SDOH_Single.parent.households",
+  "SDOH_Unemployment"
+)
+
+sdoh_labels <- c(
+  "Aged 65+",
+  "Crowding",
+  "Housing Cost Burden",
+  "No Broadband",
+  "No High School Diploma",
+  "Poverty",
+  "Minority Status",
+  "Single-Parent Households",
+  "Unemployment"
+)
+
+table3 <- bind_rows(
+  lapply(seq_along(sdoh_vars), function(i) {
+    extract_lm_results(
+      data = cumulative_data,
+      sdoh_var = sdoh_vars[i],
+      sdoh_label = sdoh_labels[i],
+      outcome = "death_outcome"
+    )
+  })
+)
+
+# View table in R
+table3
+
+# Make Word table
+ft3 <- flextable(table3)
+ft3 <- autofit(ft3)
+
+# Export Table 3 to Word
+doc3 <- read_docx()
+
+doc3 <- body_add_par(doc3, "Table 3. Two-Predictor Models for Cumulative Death Rate", style = "heading 1")
+doc3 <- body_add_par(
+  doc3,
+  "Each model includes Hesitancy Rate and one SDOH variable as correlates of cumulative death rate.",
+  style = "Normal"
+)
+doc3 <- body_add_flextable(doc3, ft3)
+
+print(doc3, target = "table3_two_predictor_models_cumulative.docx")
+```
+
+
+
